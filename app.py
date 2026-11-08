@@ -51,24 +51,25 @@ def default_music_dir() -> str:
 
 
 def explain(exc: BaseException) -> str:
+    """Код фразы. Сырой текст исключения остаётся как есть, если фразы нет."""
     current: BaseException | None = exc
     seen: list[int] = []
     while current is not None and id(current) not in seen:
         seen.append(id(current))
         if isinstance(current, PermissionError):
-            return "файл занят или нет прав на запись"
+            return "busy"
         if isinstance(current, FileNotFoundError):
-            return "файл не найден"
+            return "missing"
         if isinstance(current, HeaderNotFoundError):
-            return "это не MP3"
+            return "not_mp3"
         current = current.__cause__ or current.__context__
     text = str(exc).strip()
     low = text.lower()
     if "permission" in low or "access is denied" in low or "отказано" in low:
-        return "файл занят или нет прав на запись"
+        return "busy"
     if "can't sync" in low or "invalid header" in low or "header not found" in low:
-        return "это не MP3"
-    return text or "неизвестная ошибка"
+        return "not_mp3"
+    return text or "unknown"
 
 
 def cover_to_jpeg(path: str) -> bytes:
@@ -92,9 +93,9 @@ def cover_to_jpeg(path: str) -> bytes:
             image.save(buffer, format="JPEG", quality=JPEG_QUALITY, optimize=True)
             return buffer.getvalue()
     except UnidentifiedImageError:
-        raise ValueError("это не картинка") from None
+        raise ValueError("not_image") from None
     except Image.DecompressionBombError:
-        raise ValueError("картинка слишком большая") from None
+        raise ValueError("image_huge") from None
 
 
 def read_cover(path: str) -> bytes | None:
@@ -176,6 +177,147 @@ def write_info(path: str, values: dict[str, str]) -> None:
     audio.save(v1=1, v2_version=3)
 
 
+# Фразы окна. explain() возвращает ключ отсюда либо сырой текст исключения.
+PHRASES = {
+    "ru": {
+        "title": "Название",
+        "artist": "Исполнитель",
+        "album": "Альбом",
+        "mixed": "разные",
+        "save_info": "Записать сведения",
+        "add_files": "Добавить файлы",
+        "add_folder": "Добавить папку",
+        "remove_from_list": "Убрать из списка",
+        "empty_list": "Добавьте файлы или папку",
+        "no_cover": "Нет обложки",
+        "preview_failed": "Не удалось показать",
+        "new_cover": "Новая обложка",
+        "in_file": "Сейчас в файле",
+        "no_cover_in_file": "В файле нет обложки",
+        "to_write_none": "К записи · не выбрана",
+        "to_write": "К записи · {name}",
+        "choose_cover": "Выбрать обложку",
+        "write_selected": "Вписать в выбранные",
+        "write_all": "Вписать во все",
+        "delete_cover": "Удалить обложку",
+        "add_hint": "Добавьте MP3 и выберите обложку",
+        "cut": "Вырезать",
+        "copy": "Копировать",
+        "paste": "Вставить",
+        "select_all": "Выделить всё",
+        "dialog_mp3": "Выберите MP3",
+        "dialog_folder": "Папка с MP3",
+        "dialog_cover": "Выберите обложку",
+        "filetype_mp3": "MP3",
+        "filetype_all": "Все файлы",
+        "filetype_images": "Картинки",
+        "added": "Добавлено файлов: {count}",
+        "no_new": "Новых MP3 нет",
+        "folder_failed": "Папка не открылась: {reason}",
+        "no_mp3": "В этой папке нет MP3",
+        "select_tracks": "Выберите треки в списке",
+        "removed": "Убрано из списка: {count}",
+        "empty_keeps": "Пустое поле не меняет разные значения",
+        "progress": "{index} из {total}: {name}",
+        "info_saved": "Сведения записаны: {done} из {total}",
+        "and_more": "и ещё {count}",
+        "errors_prefix": "Ошибки:",
+        "image_open_failed": "Не удалось открыть картинку: {reason}",
+        "cover_chosen": "Обложка выбрана: {name}",
+        "list_empty": "Список треков пуст",
+        "need_cover": "Сначала выберите обложку",
+        "written": "Записано: {done} из {total}",
+        "cover_removed": "Обложка убрана: {done} из {total}",
+        "file_error": "{name}: {reason}",
+        "busy": "файл занят или нет прав на запись",
+        "missing": "файл не найден",
+        "not_mp3": "это не MP3",
+        "unknown": "неизвестная ошибка",
+        "not_image": "это не картинка",
+        "image_huge": "картинка слишком большая",
+    },
+    "en": {
+        "title": "Title",
+        "artist": "Artist",
+        "album": "Album",
+        "mixed": "mixed",
+        "save_info": "Save details",
+        "add_files": "Add files",
+        "add_folder": "Add folder",
+        "remove_from_list": "Remove from list",
+        "empty_list": "Add files or a folder",
+        "no_cover": "No cover",
+        "preview_failed": "Could not preview",
+        "new_cover": "New cover",
+        "in_file": "In the file",
+        "no_cover_in_file": "No cover in the file",
+        "to_write_none": "To write · none chosen",
+        "to_write": "To write · {name}",
+        "choose_cover": "Choose cover",
+        "write_selected": "Write to selected",
+        "write_all": "Write to all",
+        "delete_cover": "Delete cover",
+        "add_hint": "Add MP3 files and choose a cover",
+        "cut": "Cut",
+        "copy": "Copy",
+        "paste": "Paste",
+        "select_all": "Select all",
+        "dialog_mp3": "Choose MP3 files",
+        "dialog_folder": "Folder with MP3 files",
+        "dialog_cover": "Choose a cover",
+        "filetype_mp3": "MP3",
+        "filetype_all": "All files",
+        "filetype_images": "Images",
+        "added": "Files added: {count}",
+        "no_new": "No new MP3 files",
+        "folder_failed": "Could not open the folder: {reason}",
+        "no_mp3": "This folder has no MP3 files",
+        "select_tracks": "Select tracks in the list",
+        "removed": "Removed from the list: {count}",
+        "empty_keeps": "An empty field leaves mixed values unchanged",
+        "progress": "{index} of {total}: {name}",
+        "info_saved": "Details saved: {done} of {total}",
+        "and_more": "and {count} more",
+        "errors_prefix": "Errors:",
+        "image_open_failed": "Could not open the image: {reason}",
+        "cover_chosen": "Cover selected: {name}",
+        "list_empty": "The track list is empty",
+        "need_cover": "Choose a cover first",
+        "written": "Saved: {done} of {total}",
+        "cover_removed": "Cover removed: {done} of {total}",
+        "file_error": "{name}: {reason}",
+        "busy": "the file is in use or not writable",
+        "missing": "file not found",
+        "not_mp3": "this is not an MP3",
+        "unknown": "unknown error",
+        "not_image": "this is not an image",
+        "image_huge": "the image is too large",
+    },
+}
+
+CAPTIONS = {"new_cover", "in_file", "no_cover_in_file"}
+
+
+def language_file() -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "language.txt")
+
+
+def load_language() -> str:
+    try:
+        value = open(language_file(), encoding="utf-8").read().strip().lower()
+    except OSError:
+        return "ru"
+    return value if value in PHRASES else "ru"
+
+
+def save_language(lang: str) -> None:
+    try:
+        with open(language_file(), "w", encoding="utf-8") as handle:
+            handle.write(lang)
+    except OSError:
+        pass
+
+
 def track_word(count: int) -> str:
     mod = count % 100
     if 11 <= mod <= 14:
@@ -223,11 +365,13 @@ CLIPBOARD_KEYS = {
 
 
 class TextField(tk.Frame):
-    def __init__(self, master: tk.Misc, title: str) -> None:
+    def __init__(self, master: tk.Misc) -> None:
         super().__init__(master, bg=BG)
-        self.base = title
+        self.base = ""
+        self.mixed_word = ""
+        self._mixed = False
         self.label = tk.Label(
-            self, text=title, bg=BG, fg=MUTED, font=("Segoe UI", 9), anchor="w"
+            self, text="", bg=BG, fg=MUTED, font=("Segoe UI", 9), anchor="w"
         )
         self.label.pack(anchor="w", pady=(0, 4))
         self.box = tk.Frame(
@@ -257,11 +401,18 @@ class TextField(tk.Frame):
         self.entry.bind("<Control-KeyPress>", self._clipboard_key)
         self.entry.bind("<Button-3>", self._clipboard_menu)
         self.menu = tk.Menu(self.entry, tearoff=0)
-        self.menu.add_command(label="Вырезать", command=lambda: self.entry.event_generate("<<Cut>>"))
-        self.menu.add_command(label="Копировать", command=lambda: self.entry.event_generate("<<Copy>>"))
-        self.menu.add_command(label="Вставить", command=lambda: self.entry.event_generate("<<Paste>>"))
+        self.menu.add_command(label="", command=lambda: self.entry.event_generate("<<Cut>>"))
+        self.menu.add_command(label="", command=lambda: self.entry.event_generate("<<Copy>>"))
+        self.menu.add_command(label="", command=lambda: self.entry.event_generate("<<Paste>>"))
         self.menu.add_separator()
-        self.menu.add_command(label="Выделить всё", command=lambda: self.entry.event_generate("<<SelectAll>>"))
+        self.menu.add_command(label="", command=lambda: self.entry.event_generate("<<SelectAll>>"))
+
+    def apply_language(self, title: str, mixed_word: str, commands: tuple[str, str, str, str]) -> None:
+        self.base = title
+        self.mixed_word = mixed_word
+        self.set_mixed(self._mixed)
+        for index, label in zip((0, 1, 2, 4), commands):
+            self.menu.entryconfig(index, label=label)
 
     def _clipboard_key(self, event: tk.Event) -> str | None:
         sequence = CLIPBOARD_KEYS.get(event.keycode)
@@ -279,7 +430,11 @@ class TextField(tk.Frame):
         return "break"
 
     def set_mixed(self, mixed: bool) -> None:
-        self.label.configure(text=f"{self.base} · разные" if mixed else self.base)
+        self._mixed = mixed
+        if mixed:
+            self.label.configure(text=f"{self.base} · {self.mixed_word}")
+        else:
+            self.label.configure(text=self.base)
 
     def get(self) -> str:
         return self.entry.get().strip()
@@ -325,6 +480,9 @@ class QuietButton(tk.Label):
     def _key(self, _event: tk.Event) -> str:
         self.command()
         return "break"
+
+    def set_text(self, text: str) -> None:
+        self.configure(text=text)
 
 
 class FillButton(tk.Frame):
@@ -413,6 +571,9 @@ class FillButton(tk.Frame):
         self.command()
         return "break"
 
+    def set_text(self, text: str) -> None:
+        self.label.configure(text=text)
+
 
 class TrackPane(tk.Frame):
     def __init__(self, master: tk.Misc, on_click) -> None:
@@ -435,7 +596,7 @@ class TrackPane(tk.Frame):
 
         self.empty = tk.Label(
             self,
-            text="Добавьте файлы или папку",
+            text="",
             bg=CARD,
             fg=MUTED,
             font=self.font_body,
@@ -450,6 +611,9 @@ class TrackPane(tk.Frame):
         self.canvas.bind("<Enter>", self._bind_wheel)
         self.canvas.bind("<Leave>", self._unbind_wheel)
         self.empty.place(relx=0.5, rely=0.5, anchor="center")
+
+    def set_empty(self, text: str) -> None:
+        self.empty.configure(text=text)
 
     def _bind_wheel(self, _event: tk.Event) -> None:
         self.canvas.bind_all("<MouseWheel>", self._wheel)
@@ -610,6 +774,12 @@ class App(tk.Tk):
         self.image_item: int | None = None
         self.last_audio_dir = default_music_dir()
         self.last_image_dir = self.last_audio_dir
+        self.lang = load_language()
+        self.cover_name: str | None = None
+        self._status_key = "add_hint"
+        self._status_fmt: dict[str, object] = {}
+        self._status_errors: list[tuple[str, str]] = []
+        self._status_bad = False
 
         self._build()
         self.bind("<Delete>", self._remove_selected)
@@ -624,10 +794,22 @@ class App(tk.Tk):
         tk.Label(header, text="Sleeve", bg=BG, fg=TEXT, font=("Segoe UI", 13)).place(
             x=24, rely=0.5, anchor="w"
         )
-        self.count_label = tk.Label(
-            header, text="0 треков", bg=BG, fg=MUTED, font=("Consolas", 9)
+        langs = tk.Frame(header, bg=BG)
+        langs.place(relx=1, x=-24, rely=0.5, anchor="e")
+        self.lang_ru = tk.Label(
+            langs, text="RU", bg=BG, fg=TEXT, font=("Consolas", 9), cursor="hand2"
         )
-        self.count_label.place(relx=1, x=-24, rely=0.5, anchor="e")
+        self.lang_dot = tk.Label(langs, text="·", bg=BG, fg=MUTED, font=("Consolas", 9))
+        self.lang_en = tk.Label(
+            langs, text="EN", bg=BG, fg=MUTED, font=("Consolas", 9), cursor="hand2"
+        )
+        self.lang_ru.pack(side="left")
+        self.lang_dot.pack(side="left", padx=6)
+        self.lang_en.pack(side="left", padx=(0, 16))
+        self.count_label = tk.Label(langs, text="", bg=BG, fg=MUTED, font=("Consolas", 9))
+        self.count_label.pack(side="left")
+        self.lang_ru.bind("<Button-1>", lambda _event: self._set_language("ru"))
+        self.lang_en.bind("<Button-1>", lambda _event: self._set_language("en"))
 
         tk.Frame(self, bg=LINE, height=1).pack(fill="x")
 
@@ -648,21 +830,22 @@ class App(tk.Tk):
         form.grid(row=1, column=0, sticky="ew", pady=(16, 0))
         self.fields: dict[str, TextField] = {}
         self.mixed = {"title": False, "artist": False, "album": False}
-        for index, (key, title) in enumerate(
-            (("title", "Название"), ("artist", "Исполнитель"), ("album", "Альбом"))
-        ):
-            field = TextField(form, title)
+        for index, key in enumerate(("title", "artist", "album")):
+            field = TextField(form)
             field.pack(fill="x", pady=(8 if index else 0, 0))
             self.fields[key] = field
-        info_button = FillButton(form, "Записать сведения", self._write_info, "secondary")
-        info_button.configure(width=220)
-        info_button.pack(anchor="w", pady=(16, 0))
+        self.info_button = FillButton(form, "", self._write_info, "secondary")
+        self.info_button.configure(width=220)
+        self.info_button.pack(anchor="w", pady=(16, 0))
 
         actions = tk.Frame(left, bg=BG)
         actions.grid(row=2, column=0, sticky="w", pady=(16, 0))
-        QuietButton(actions, "Добавить файлы", self._add_files).pack(side="left", padx=(0, 16))
-        QuietButton(actions, "Добавить папку", self._add_folder).pack(side="left", padx=(0, 16))
-        QuietButton(actions, "Убрать из списка", self._remove_selected).pack(side="left")
+        self.add_files_button = QuietButton(actions, "", self._add_files)
+        self.add_files_button.pack(side="left", padx=(0, 16))
+        self.add_folder_button = QuietButton(actions, "", self._add_folder)
+        self.add_folder_button.pack(side="left", padx=(0, 16))
+        self.remove_button = QuietButton(actions, "", self._remove_selected)
+        self.remove_button.pack(side="left")
 
         right = tk.Frame(body, bg=BG, width=COVER)
         right.grid(row=0, column=1, sticky="nw")
@@ -675,7 +858,7 @@ class App(tk.Tk):
         self.empty_id = self.sleeve.create_text(
             COVER // 2,
             COVER // 2,
-            text="Нет обложки",
+            text="",
             fill=MUTED,
             font=("Segoe UI", 10),
         )
@@ -698,7 +881,7 @@ class App(tk.Tk):
         )
         self.view_label.grid(row=1, column=0, sticky="ew", pady=(12, 0))
 
-        self.chosen_caption = tk.StringVar(value="К записи · не выбрана")
+        self.chosen_caption = tk.StringVar(value="")
         self.chosen_label = tk.Label(
             right,
             textvariable=self.chosen_caption,
@@ -710,23 +893,19 @@ class App(tk.Tk):
         self.chosen_label.grid(row=2, column=0, sticky="ew", pady=(12, 0))
         self.view_label.grid_remove()
 
-        QuietButton(right, "Выбрать обложку", self._choose_cover).grid(
-            row=3, column=0, sticky="w", pady=(12, 0)
-        )
-        FillButton(right, "Вписать в выбранные", self._write_selected, "primary").grid(
-            row=4, column=0, sticky="ew", pady=(16, 0)
-        )
-        FillButton(right, "Вписать во все", self._write_all, "secondary").grid(
-            row=5, column=0, sticky="ew", pady=(8, 0)
-        )
-        QuietButton(right, "Удалить обложку", self._remove_covers).grid(
-            row=6, column=0, sticky="w", pady=(16, 0)
-        )
+        self.choose_button = QuietButton(right, "", self._choose_cover)
+        self.choose_button.grid(row=3, column=0, sticky="w", pady=(12, 0))
+        self.write_selected_button = FillButton(right, "", self._write_selected, "primary")
+        self.write_selected_button.grid(row=4, column=0, sticky="ew", pady=(16, 0))
+        self.write_all_button = FillButton(right, "", self._write_all, "secondary")
+        self.write_all_button.grid(row=5, column=0, sticky="ew", pady=(8, 0))
+        self.delete_cover_button = QuietButton(right, "", self._remove_covers)
+        self.delete_cover_button.grid(row=6, column=0, sticky="w", pady=(16, 0))
 
         tk.Frame(self, bg=LINE, height=1).pack(fill="x")
         bar = tk.Frame(self, bg=BG)
         bar.pack(fill="x")
-        self.status = tk.StringVar(value="Добавьте MP3 и выберите обложку")
+        self.status = tk.StringVar(value="")
         self.status_label = tk.Label(
             bar,
             textvariable=self.status,
@@ -738,6 +917,52 @@ class App(tk.Tk):
             wraplength=860,
         )
         self.status_label.pack(fill="x", padx=24, pady=12)
+        self._apply_language()
+
+    def tr(self, key: str) -> str:
+        return PHRASES[self.lang][key]
+
+    def reason(self, key: str) -> str:
+        table = PHRASES[self.lang]
+        if key in table:
+            return table[key]
+        return key
+
+    def _count_text(self, count: int) -> str:
+        if self.lang == "en":
+            word = "track" if count == 1 else "tracks"
+            return f"{count} {word}"
+        return f"{count} {track_word(count)}"
+
+    def _set_language(self, lang: str) -> None:
+        if lang not in PHRASES or lang == self.lang:
+            return
+        self.lang = lang
+        save_language(lang)
+        self._apply_language()
+
+    def _apply_language(self) -> None:
+        self.lang_ru.configure(fg=TEXT if self.lang == "ru" else MUTED)
+        self.lang_en.configure(fg=TEXT if self.lang == "en" else MUTED)
+        commands = (self.tr("cut"), self.tr("copy"), self.tr("paste"), self.tr("select_all"))
+        for key, field in self.fields.items():
+            field.apply_language(self.tr(key), self.tr("mixed"), commands)
+        self.info_button.set_text(self.tr("save_info"))
+        self.add_files_button.set_text(self.tr("add_files"))
+        self.add_folder_button.set_text(self.tr("add_folder"))
+        self.remove_button.set_text(self.tr("remove_from_list"))
+        self.choose_button.set_text(self.tr("choose_cover"))
+        self.write_selected_button.set_text(self.tr("write_selected"))
+        self.write_all_button.set_text(self.tr("write_all"))
+        self.delete_cover_button.set_text(self.tr("delete_cover"))
+        self.tracks.set_empty(self.tr("empty_list"))
+        if self.cover_name:
+            self.chosen_caption.set(self.tr("to_write").format(name=self.cover_name))
+        else:
+            self.chosen_caption.set(self.tr("to_write_none"))
+        self._refresh_tracks()
+        self._preview_selection(report=False)
+        self._paint_status()
 
     def _sleeve_enter(self, _event: tk.Event) -> None:
         self.sleeve.itemconfigure(self.frame_id, outline="#d4d4d4")
@@ -749,9 +974,32 @@ class App(tk.Tk):
         if event.widget is self:
             self.status_label.configure(wraplength=max(200, event.width - 48))
 
-    def _set_status(self, text: str, bad: bool = False) -> None:
+    def _set_status(
+        self,
+        key: str,
+        bad: bool = False,
+        errors: list[tuple[str, str]] | None = None,
+        **fmt: object,
+    ) -> None:
+        self._status_key = key
+        self._status_fmt = fmt
+        self._status_errors = list(errors or [])
+        self._status_bad = bad
+        self._paint_status()
+
+    def _paint_status(self) -> None:
+        fmt: dict[str, object] = {}
+        for key, value in self._status_fmt.items():
+            fmt[key] = self.reason(str(value)) if key == "reason" else value
+        text = self.tr(self._status_key).format(**fmt)
+        if self._status_errors:
+            shown = [f"{name}: {self.reason(reason)}" for name, reason in self._status_errors[:3]]
+            extra = len(self._status_errors) - 3
+            if extra > 0:
+                shown.append(self.tr("and_more").format(count=extra))
+            text += "  " + self.tr("errors_prefix") + " " + "; ".join(shown)
         self.status.set(text)
-        self.status_label.configure(fg=DANGER if bad else MUTED)
+        self.status_label.configure(fg=DANGER if self._status_bad else MUTED)
 
     def _same_path(self, left: str, right: str) -> bool:
         return os.path.normcase(os.path.abspath(left)) == os.path.normcase(
@@ -759,7 +1007,7 @@ class App(tk.Tk):
         )
 
     def _refresh_tracks(self) -> None:
-        self.count_label.configure(text=f"{len(self.paths)} {track_word(len(self.paths))}")
+        self.count_label.configure(text=self._count_text(len(self.paths)))
         self.tracks.set_entries(row_parts(self.paths), self.selected)
 
     def _add_paths(self, paths: list[str]) -> None:
@@ -771,16 +1019,16 @@ class App(tk.Tk):
             added += 1
         self._refresh_tracks()
         if added:
-            self._set_status(f"Добавлено файлов: {added}")
+            self._set_status("added", count=added)
         else:
-            self._set_status("Новых MP3 нет")
+            self._set_status("no_new")
 
     def _add_files(self) -> None:
         picked = filedialog.askopenfilenames(
             parent=self,
-            title="Выберите MP3",
+            title=self.tr("dialog_mp3"),
             initialdir=self.last_audio_dir,
-            filetypes=[("MP3", "*.mp3"), ("Все файлы", "*.*")],
+            filetypes=[(self.tr("filetype_mp3"), "*.mp3"), (self.tr("filetype_all"), "*.*")],
         )
         if not picked:
             return
@@ -792,7 +1040,7 @@ class App(tk.Tk):
     def _add_folder(self) -> None:
         folder = filedialog.askdirectory(
             parent=self,
-            title="Папка с MP3",
+            title=self.tr("dialog_folder"),
             initialdir=self.last_audio_dir,
         )
         if not folder:
@@ -802,7 +1050,7 @@ class App(tk.Tk):
         try:
             names = sorted(os.listdir(folder), key=str.lower)
         except OSError as exc:
-            self._set_status(f"Папка не открылась: {explain(exc)}", bad=True)
+            self._set_status("folder_failed", bad=True, reason=explain(exc))
             return
         for name in names:
             if not name.lower().endswith(".mp3"):
@@ -811,7 +1059,7 @@ class App(tk.Tk):
             if os.path.isfile(path):
                 found.append(path)
         if not found:
-            self._set_status("В этой папке нет MP3")
+            self._set_status("no_mp3")
             return
         self._add_paths(found)
 
@@ -858,7 +1106,7 @@ class App(tk.Tk):
         if event is not None and self._typing():
             return "break"
         if not self.selected:
-            self._set_status("Выберите треки в списке")
+            self._set_status("select_tracks")
             return "break"
         removed = len(self.selected)
         for index in sorted(self.selected, reverse=True):
@@ -866,7 +1114,7 @@ class App(tk.Tk):
         self.selected.clear()
         self.anchor = None
         self._refresh_tracks()
-        self._set_status(f"Убрано из списка: {removed}")
+        self._set_status("removed", count=removed)
         self._preview_selection()
         self._load_fields()
         return "break"
@@ -884,7 +1132,9 @@ class App(tk.Tk):
             try:
                 found.append(read_info(path))
             except Exception as exc:
-                self._set_status(f"{os.path.basename(path)}: {explain(exc)}", bad=True)
+                self._set_status(
+                    "file_error", bad=True, name=os.path.basename(path), reason=explain(exc)
+                )
         if not found:
             return
         for key, field in self.fields.items():
@@ -897,7 +1147,7 @@ class App(tk.Tk):
     def _write_info(self) -> None:
         paths = self._selected_paths()
         if not paths:
-            self._set_status("Выберите треки в списке")
+            self._set_status("select_tracks")
             return
         values: dict[str, str] = {}
         for key, field in self.fields.items():
@@ -906,27 +1156,21 @@ class App(tk.Tk):
                 continue
             values[key] = text
         if not values:
-            self._set_status("Пустое поле не меняет разные значения")
+            self._set_status("empty_keeps")
             return
         done = 0
-        errors: list[str] = []
+        errors: list[tuple[str, str]] = []
         total = len(paths)
         for index, path in enumerate(paths, start=1):
             name = os.path.basename(path)
-            self._set_status(f"{index} из {total}: {name}")
+            self._set_status("progress", index=index, total=total, name=name)
             self.update_idletasks()
             try:
                 write_info(path, values)
                 done += 1
             except Exception as exc:
-                errors.append(f"{name}: {explain(exc)}")
-        summary = f"Сведения записаны: {done} из {total}"
-        if errors:
-            shown = errors[:3]
-            if len(errors) > 3:
-                shown.append(f"и ещё {len(errors) - 3}")
-            summary += "  Ошибки: " + "; ".join(shown)
-        self._set_status(summary, bad=bool(errors))
+                errors.append((name, explain(exc)))
+        self._set_status("info_saved", bad=bool(errors), errors=errors, done=done, total=total)
         self._load_fields()
 
     def _selected_paths(self) -> list[str]:
@@ -944,11 +1188,12 @@ class App(tk.Tk):
         self.chosen_label.grid_configure(pady=(4, 0))
 
     def _show_preview(self, data: bytes | None, caption: str) -> None:
-        self._set_view_caption(caption)
+        shown = caption if caption not in CAPTIONS else self.tr(caption)
+        self._set_view_caption(shown)
         if not data:
             if self.image_item is not None:
                 self.sleeve.itemconfigure(self.image_item, state="hidden")
-            self.sleeve.itemconfigure(self.empty_id, state="normal")
+            self.sleeve.itemconfigure(self.empty_id, state="normal", text=self.tr("no_cover"))
             return
         try:
             with Image.open(io.BytesIO(data)) as image:
@@ -960,9 +1205,9 @@ class App(tk.Tk):
         except Exception:
             if self.image_item is not None:
                 self.sleeve.itemconfigure(self.image_item, state="hidden")
-            self.sleeve.itemconfigure(self.empty_id, state="normal", text="Не удалось показать")
+            self.sleeve.itemconfigure(self.empty_id, state="normal", text=self.tr("preview_failed"))
             return
-        self.sleeve.itemconfigure(self.empty_id, state="hidden", text="Нет обложки")
+        self.sleeve.itemconfigure(self.empty_id, state="hidden", text=self.tr("no_cover"))
         if self.image_item is None:
             self.image_item = self.sleeve.create_image(COVER // 2, COVER // 2, image=photo)
         else:
@@ -970,10 +1215,10 @@ class App(tk.Tk):
         self.preview_photo = photo
         self.sleeve.tag_raise(self.frame_id)
 
-    def _preview_selection(self) -> None:
+    def _preview_selection(self, report: bool = True) -> None:
         if not self.selected:
             if self.cover_jpeg is not None:
-                self._show_preview(self.cover_jpeg, "Новая обложка")
+                self._show_preview(self.cover_jpeg, "new_cover")
             else:
                 self._show_preview(None, " ")
             return
@@ -983,21 +1228,22 @@ class App(tk.Tk):
             data = read_cover(path)
         except Exception as exc:
             self._show_preview(None, name)
-            self._set_status(f"{name}: {explain(exc)}", bad=True)
+            if report:
+                self._set_status("file_error", bad=True, name=name, reason=explain(exc))
             return
         if data:
-            self._show_preview(data, "Сейчас в файле")
+            self._show_preview(data, "in_file")
         else:
-            self._show_preview(None, "В файле нет обложки")
+            self._show_preview(None, "no_cover_in_file")
 
     def _choose_cover(self) -> None:
         path = filedialog.askopenfilename(
             parent=self,
-            title="Выберите обложку",
+            title=self.tr("dialog_cover"),
             initialdir=self.last_image_dir,
             filetypes=[
-                ("Картинки", "*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.gif"),
-                ("Все файлы", "*.*"),
+                (self.tr("filetype_images"), "*.jpg;*.jpeg;*.png;*.webp;*.bmp;*.gif"),
+                (self.tr("filetype_all"), "*.*"),
             ],
         )
         if not path:
@@ -1006,36 +1252,37 @@ class App(tk.Tk):
         try:
             jpeg = cover_to_jpeg(path)
         except Exception as exc:
-            self._set_status(f"Не удалось открыть картинку: {explain(exc)}", bad=True)
+            self._set_status("image_open_failed", bad=True, reason=explain(exc))
             return
         self.cover_jpeg = jpeg
         name = os.path.basename(path)
-        self.chosen_caption.set(f"К записи · {name}")
-        self._show_preview(jpeg, "Новая обложка")
-        self._set_status(f"Обложка выбрана: {name}")
+        self.cover_name = name
+        self.chosen_caption.set(self.tr("to_write").format(name=name))
+        self._show_preview(jpeg, "new_cover")
+        self._set_status("cover_chosen", name=name)
 
     def _write_selected(self) -> None:
-        self._apply(self._selected_paths(), "write", empty="Выберите треки в списке")
+        self._apply(self._selected_paths(), "write", "select_tracks")
 
     def _write_all(self) -> None:
-        self._apply(list(self.paths), "write", empty="Список треков пуст")
+        self._apply(list(self.paths), "write", "list_empty")
 
     def _remove_covers(self) -> None:
-        self._apply(self._selected_paths(), "remove", empty="Выберите треки в списке")
+        self._apply(self._selected_paths(), "remove", "select_tracks")
 
     def _apply(self, paths: list[str], action: str, empty: str) -> None:
         if not paths:
             self._set_status(empty)
             return
         if action == "write" and not self.cover_jpeg:
-            self._set_status("Сначала выберите обложку")
+            self._set_status("need_cover")
             return
         done = 0
-        errors: list[str] = []
+        errors: list[tuple[str, str]] = []
         total = len(paths)
         for index, path in enumerate(paths, start=1):
             name = os.path.basename(path)
-            self._set_status(f"{index} из {total}: {name}")
+            self._set_status("progress", index=index, total=total, name=name)
             self.update_idletasks()
             try:
                 if action == "write":
@@ -1044,17 +1291,9 @@ class App(tk.Tk):
                     remove_cover(path)
                 done += 1
             except Exception as exc:
-                errors.append(f"{name}: {explain(exc)}")
-        if action == "write":
-            summary = f"Записано: {done} из {total}"
-        else:
-            summary = f"Обложка убрана: {done} из {total}"
-        if errors:
-            shown = errors[:3]
-            if len(errors) > 3:
-                shown.append(f"и ещё {len(errors) - 3}")
-            summary += "  Ошибки: " + "; ".join(shown)
-        self._set_status(summary, bad=bool(errors))
+                errors.append((name, explain(exc)))
+        key = "written" if action == "write" else "cover_removed"
+        self._set_status(key, bad=bool(errors), errors=errors, done=done, total=total)
         self._preview_selection()
 
 
