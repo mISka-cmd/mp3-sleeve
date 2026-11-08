@@ -212,6 +212,16 @@ def row_parts(paths: list[str]) -> list[tuple[str, str]]:
     return parts
 
 
+# Коды клавиш Windows. При русской раскладке Ctrl+V приходит как Ctrl+М,
+# и Tk не узнаёт команду. Код клавиши от раскладки не зависит.
+CLIPBOARD_KEYS = {
+    65: "<<SelectAll>>",
+    67: "<<Copy>>",
+    86: "<<Paste>>",
+    88: "<<Cut>>",
+}
+
+
 class TextField(tk.Frame):
     def __init__(self, master: tk.Misc, title: str) -> None:
         super().__init__(master, bg=BG)
@@ -244,6 +254,29 @@ class TextField(tk.Frame):
         self.entry.pack(fill="both", expand=True, padx=8, pady=6)
         self.entry.bind("<FocusIn>", lambda _event: self.box.configure(highlightbackground=TEXT))
         self.entry.bind("<FocusOut>", lambda _event: self.box.configure(highlightbackground=LINE))
+        self.entry.bind("<Control-KeyPress>", self._clipboard_key)
+        self.entry.bind("<Button-3>", self._clipboard_menu)
+        self.menu = tk.Menu(self.entry, tearoff=0)
+        self.menu.add_command(label="Вырезать", command=lambda: self.entry.event_generate("<<Cut>>"))
+        self.menu.add_command(label="Копировать", command=lambda: self.entry.event_generate("<<Copy>>"))
+        self.menu.add_command(label="Вставить", command=lambda: self.entry.event_generate("<<Paste>>"))
+        self.menu.add_separator()
+        self.menu.add_command(label="Выделить всё", command=lambda: self.entry.event_generate("<<SelectAll>>"))
+
+    def _clipboard_key(self, event: tk.Event) -> str | None:
+        sequence = CLIPBOARD_KEYS.get(event.keycode)
+        if sequence is None:
+            return None
+        self.entry.event_generate(sequence)
+        return "break"
+
+    def _clipboard_menu(self, event: tk.Event) -> str:
+        self.entry.focus_set()
+        try:
+            self.menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.menu.grab_release()
+        return "break"
 
     def set_mixed(self, mixed: bool) -> None:
         self.label.configure(text=f"{self.base} · разные" if mixed else self.base)
